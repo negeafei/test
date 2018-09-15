@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title></title>
+	</head>
+	<body>
+		
+		<script>
+			/*
+			var dest = [{
+				id: '01',
+				name: 'hello',
+				child: [{
+					id: '0101',
+					name: 'bill'
+				},{
+					id: '0102',
+					name: 'jack'
+				}]
+			},{
+				id: '02',
+				name: 'world',
+				child: [{
+					id: '0201',
+					name: 'foo',
+					child: [{
+						id: '020101',
+						name: 'jerry'
+					},{
+						id: '020102',
+						name: 'peter',
+						child: [{
+							id: '02010201',
+							name: 'tom'
+						}]
+					}]
+				},{
+					id: '0202',
+					name: 'bar'
+				}]
+			}];
+			*/
+			var list = [
+				['hello', 'bill'],
+				['hello', 'jack'],
+				['world', 'foo', 'jerry'],
+				['world', 'foo', 'peter', 'tom'],
+				['world', 'bar']
+			];
+			
+			function Node(data, id, child, parent){
+				this.name = data;
+				this.id = id;
+				this.child = child || [];
+				this.parent = parent;
+			}
+			/*
+			 * 前序-广度优先
+			 * 借助队列，每次从队列拿一个进行操作，并将其child加入队列。
+			 */
+			Node.prototype.bfs = function(resolveHandle){
+				var queue = [this];
+				var now;
+				while(now = queue.shift()){
+					if(resolveHandle && resolveHandle(now)){
+						return;
+					}
+					for(var i = 0, l = now.child.length; i < l; i++){
+						queue.push(now.child[i]);
+					}
+				}
+			}
+			/*
+			 * 前序-深度优先
+			 * 借助栈，每次出栈一个元素进行操作，并将其child入栈。
+			 */
+			Node.prototype.dfs = function(resolveHandle){
+				var stack = [this];
+				var now;
+				while(now = stack.shift()){
+					if(resolveHandle && resolveHandle(now)){
+						return;
+					}
+					for(var i = now.child.length - 1; i >= 0; i--){
+						stack.unshift(now.child[i]);
+					}
+				}
+			}
+			//前序-递归（深度优先）
+			Node.prototype.dfs_rec = function(resolveHandle){
+				if(resolveHandle && resolveHandle(this)){
+					return;
+				}
+				for(var i in this.child){
+					this.child[i].dfs_rec(resolveHandle);
+				}
+			}
+			//后序-递归（深度优先）
+			Node.prototype.post_rec = function(resolveHandle){
+				for(var i in this.child){
+					this.child[i].post_rec(resolveHandle);
+				}
+				if(resolveHandle && resolveHandle(this)){
+					return;
+				}
+			}
+			/*
+			 * 后序-深度优先
+			 * 对于每个节点，都压入两遍，在循环体中，每次弹出一个节点赋给now，
+			 * 如果now仍然等于栈的头结点，说明now的孩子们还没有被操作过，应该把它的孩子们加入栈中，否则，访问now。
+			 * 也就是说，第一次弹出，将now的孩子压入栈中，第二次弹出，访问now。
+			 */
+			Node.prototype.post_dfs = function(resolveHandle){
+				var stack = [this, this];
+				var now;
+				while(now = stack.shift()){
+					if(now == stack[0]){
+						for(var i = now.child.length - 1; i >= 0; i--){
+							stack.unshift(now.child[i]);
+							stack.unshift(now.child[i]);
+						}
+					}else{
+						if(resolveHandle && resolveHandle(now)){
+							return;
+						}
+					}
+				}
+			}
+			/*
+			 * 后序-广度优先
+			 * 同时借助队列和栈。以根节点作为初始队列，每个节点出队的同时将其child从右到左逐个入队，并将自身入栈
+			 */
+			Node.prototype.post_bfs = function(resolveHandle){
+				var queue = [this];
+				var stack = [];
+				var now;
+				while(now = queue.shift()){
+					for(var i = now.child.length - 1; i >= 0; i--){
+						queue.push(now.child[i]);
+					}
+					stack.unshift(now);
+				}
+				while(now = stack.shift()){
+					if(resolveHandle && resolveHandle(now)){
+						return;
+					}
+				}
+			}
+			
+			
+			
+			Node.prototype.searchByName = function(name, autoCreate){
+				var genId = (index) => {
+					return this.id + (index < 9 ? ('0' + (index + 1)) : (index + 1));
+				}
+				
+				for(var i = 0, l = this.child.length; i < l; i++){
+					if(this.child[i].name == name){
+						!this.child[i].id && (this.child[i].id = genId(i));
+						return this.child[i];
+					}
+				}
+				if(autoCreate){
+					var node = new Node(name, genId(this.child.length), [], this);
+					this.child.push(node);
+					return node;
+				}
+			}
+			Node.prototype.searchByPath = function(path, resolveHandle, autoCreate){
+				var node = this;
+				for(var i = 0, l = path.length; i < l; i++){
+					node = node.searchByName(path[i], autoCreate);
+					if(!node){
+						break;
+					}
+				}
+				if(node){
+					resolveHandle && resolveHandle(node);
+				}
+			}
+			
+			var root = new Node('root', '');
+			for(var i in list){
+				root.searchByPath(list[i], null, true);
+			}
+			
+			console.log('dfs_rec--------');
+			root.dfs_rec(deal);
+			console.log('dfs--------');
+			root.dfs(deal);
+			console.log('bfs--------');
+			root.bfs(deal);
+			console.log('post_rec--------');
+			root.post_rec(deal);
+			console.log('post_dfs--------');
+			root.post_dfs(deal);
+			console.log('post_bfs--------');
+			root.post_bfs(deal);
+			
+			function deal(node){
+				console.log(node.id, node.name);
+			}
+			
+			/*
+			Node.prototype.preTraverse = function(resolveHandle){
+				if(resolveHandle && resolveHandle(this)){
+					return;
+				}
+				for(var i in this.child){
+					this.child[i].preTraverse(resolveHandle);
+				}
+			}
+			
+			function list2Tree(list){
+				var root = new Node(list[0]);
+				var parent = root;
+				for(var i = 1, l = list.length; i < l; i++){
+					var node = new Node(list[i]);
+					node.parent = parent;
+					parent.child.push(node);
+					parent = node;
+				}
+				return root;
+			}
+			
+			var root0 = list2Tree(list[0]);
+			var root1 = list2Tree(list[1]);
+			var root2 = list2Tree(list[2]);
+			var root3 = list2Tree(list[3]);
+			var root4 = list2Tree(list[4]);
+			root0.preTraverse(function(node){
+				console.log(node.name);
+			});
+			*/
+			
+			/*
+			var root = {id: '0', name: 'root', child: []};
+			function appendToTree(tree, currentVal, currentIndex, arr){
+				for(var i = 0, l = tree.child.length; i < l; i++){
+					
+				}
+				
+				return tree;
+			}
+			console.log(list[0].reduce(appendToTree, root));
+			*/
+			
+		</script>
+	</body>
+</html>
